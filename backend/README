@@ -1,0 +1,4 @@
+docker build -t video-worker .
+docker run --rm --env-file .env video-worker
+
+modal deploy mod.py

@@ -1,0 +1,30 @@
+node_modules
+# Keep environment variables out of version control
+.env
+
+/generated/prisma
+# ---- Environment variables ----
+.env
+.env.*
+!.env.example
+
+# ---- Python ----
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.venv/
+venv/
+
+# ---- Node ----
+node_modules/
+dist/
+build/
+
+# ---- OS ----
+.DS_Store
+Thumbs.db
+
+# ---- Logs ----
+*.log
+

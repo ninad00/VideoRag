@@ -1,0 +1,20 @@
+# 1. Base image: Linux + Node.js
+FROM node:20-bookworm
+
+# 2. Install ffmpeg inside the container
+RUN apt-get update && apt-get install -y ffmpeg
+
+# 3. Set working directory inside container
+WORKDIR /app
+
+# 4. Copy dependency files first (for caching)
+COPY package*.json ./
+
+# 5. Install Node dependencies
+RUN npm install --production
+
+# 6. Copy the rest of your code
+COPY . .
+
+# 7. Start the worker
+CMD ["npm", "start"]

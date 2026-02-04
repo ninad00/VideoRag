@@ -1,0 +1,20 @@
+@import "tailwindcss";
+/* ---------- Global resets ---------- */
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+/* Prevent scrollbars on video pages */
+body {
+  margin: 0;
+  background-color: #000;
+}
+
+/* Optional: better font rendering */
+* {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
