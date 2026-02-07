@@ -143,7 +143,7 @@ docker-compose up -d
 Create `backend/.env`:
 ```env
 # Database
-DATABASE_URL="mysql://root:ninad2005#@localhost:3306/videosite"
+DATABASE_URL="mysql://root:your_password@localhost:3306/videosite"
 
 # AWS Configuration
 AWS_ACCESS_KEY_ID=your_access_key
