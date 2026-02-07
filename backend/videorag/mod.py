@@ -25,6 +25,7 @@ class ProcessRequest(BaseModel):
 class ChatRequest(BaseModel):
     video_id:str
     query: str
+    top_k: int
     history: list[dict]
 
 app = modal.App(name="videorag")
@@ -427,6 +428,7 @@ def rag_with_gemini(video_id:str,query_actual: str,query_vlm: str,rag_text: str,
     image=image,
     gpu="H100",
     timeout=60 * 60,
+    concurrency_limit=1,
     secrets=[modal.Secret.from_name("videorag-secrets")]
 )
 class VideoProcessor:
@@ -497,9 +499,9 @@ class VideoProcessor:
 
 @app.cls(
     image=image,
-    gpu="H100",
+    gpu="L4",
     timeout=60 * 30,
-    keep_warm=1,
+    concurrency_limit=2,
     secrets=[modal.Secret.from_name("videorag-secrets")]
 )
 class VideoChat:
@@ -540,7 +542,7 @@ class VideoChat:
         )
 
     @modal.method()
-    def chat(self, video_id: str, query: str, history: list[dict] = [], top_k: int = 8):
+    def chat(self, video_id: str, query: str, history: list[dict]|None = None, top_k: int = 8):
 
         text_ans = generate_text_answer(
             query=query,
@@ -568,6 +570,8 @@ class VideoChat:
             supabase=self.supabase
         )
 
+video_processor = VideoProcessor()
+video_chat = VideoChat()
 
 @app.function(
     image=image,
@@ -575,8 +579,7 @@ class VideoChat:
 )
 @modal.fastapi_endpoint(method="POST")
 def process_endpoint(req: ProcessRequest):
-    vr = VideoProcessor()
-    return vr.process.remote(
+    return video_processor.process.remote(
         video_id=req.video_id,
         duration=req.duration
     )
@@ -588,9 +591,9 @@ def process_endpoint(req: ProcessRequest):
 )
 @modal.fastapi_endpoint(method="POST")
 def chat_endpoint(req: ChatRequest):
-    vr = VideoChat()
-    return vr.chat.remote(
+    return video_chat.chat.remote(
         video_id=req.video_id,
         query=req.query,
-        history=req.history
+        history=req.history,
+        top_k=req.top_k
     )
