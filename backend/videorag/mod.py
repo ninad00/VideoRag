@@ -426,7 +426,7 @@ def rag_with_gemini(video_id:str,query_actual: str,query_vlm: str,rag_text: str,
 ##################################
 @app.cls(
     image=image,
-    gpu="H100",
+    gpu="L4",
     timeout=60 * 60,
     concurrency_limit=1,
     secrets=[modal.Secret.from_name("videorag-secrets")]
@@ -500,8 +500,9 @@ class VideoProcessor:
 @app.cls(
     image=image,
     gpu="L4",
-    timeout=60 * 30,
+    timeout=60 * 10,
     concurrency_limit=2,
+    enable_memory_snapshot=True,
     secrets=[modal.Secret.from_name("videorag-secrets")]
 )
 class VideoChat:
@@ -543,7 +544,8 @@ class VideoChat:
 
     @modal.method()
     def chat(self, video_id: str, query: str, history: list[dict]|None = None, top_k: int = 8):
-
+        if history is None:
+            history = []
         text_ans = generate_text_answer(
             query=query,
             video_id=video_id,
