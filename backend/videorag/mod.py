@@ -517,11 +517,12 @@ class VideoProcessor:
     gpu="L4",
     timeout=60 * 5,
     concurrency_limit=2,
-    # enable_memory_snapshot=True,
+    enable_memory_snapshot=True,
+    experimental_options={"enable_gpu_snapshot": True},
     secrets=[modal.Secret.from_name("videorag-secrets")]
 )
 class VideoChat:
-    @modal.enter()
+    @modal.enter(snap=True)
     def load_models(self):
         from concurrent.futures import ThreadPoolExecutor, as_completed
         load_dotenv()
