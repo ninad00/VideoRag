@@ -17,6 +17,7 @@ import boto3
 from io import BytesIO
 from PIL import Image
 from pydantic import BaseModel
+from concurrent.futures import ThreadPoolExecutor
 
 class ProcessRequest(BaseModel):
     video_id: str
@@ -30,6 +31,20 @@ class ChatRequest(BaseModel):
 
 app = modal.App(name="videorag")
 volume = modal.Volume.from_name("videorag-vol", create_if_missing=True)
+
+def download_models():
+    """Download models at build time"""
+    from transformers import AutoModel, AutoProcessor
+    from sentence_transformers import SentenceTransformer
+    
+    # Download SiGLIP
+    AutoModel.from_pretrained("google/siglip-so400m-patch14-384")
+    AutoProcessor.from_pretrained("google/siglip-so400m-patch14-384", use_fast=True)
+    
+    # Download sentence transformer
+    SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2")
+    
+    print("✓ Models downloaded")
 
 
 image = (
@@ -52,7 +67,7 @@ image = (
         "groq",
         "sentence-transformers",
         "supabase"
-    )
+    ).run_function(download_models)
 )
 
     
@@ -137,8 +152,8 @@ def extract_keyframes(duration: int, video_id: str,siglip_model=None,siglip_proc
         imgs = [Image.fromarray(f) for f in all_frames[i:i + batch_size]]
         inputs = siglip_processor(images=imgs, return_tensors="pt").to(device)
         with torch.no_grad():
-            emb = siglip_model.get_image_features(**inputs)
-        output = siglip_model.get_image_features(**inputs)
+            output = siglip_model.get_image_features(**inputs)
+
         if hasattr(output, "pooler_output"):
             emb = output.pooler_output
         else:
@@ -440,7 +455,7 @@ class VideoProcessor:
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
         self.siglip_model = AutoModel.from_pretrained(
-            "google/siglip-so400m-patch14-384"
+            "google/siglip-so400m-patch14-384",torch_dtype=torch.float16
         ).to(self.device)
 
         self.siglip_processor = AutoProcessor.from_pretrained(
@@ -451,7 +466,7 @@ class VideoProcessor:
         self.whisper_model = None
         self.sentence_model = SentenceTransformer(
             "sentence-transformers/all-MiniLM-L6-v2"
-        )
+        ).half()
 
         session = boto3.Session(
             aws_access_key_id=os.environ["AWS_ACCESS_KEY_ID"],
@@ -500,47 +515,68 @@ class VideoProcessor:
 @app.cls(
     image=image,
     gpu="L4",
-    timeout=60 * 10,
+    timeout=60 * 5,
     concurrency_limit=2,
-    enable_memory_snapshot=True,
+    # enable_memory_snapshot=True,
     secrets=[modal.Secret.from_name("videorag-secrets")]
 )
 class VideoChat:
     @modal.enter()
     def load_models(self):
-        from supabase import create_client
+        import time
+        start = time.time()
+        
+        print(f"[{time.time()-start:.2f}s] Starting...")
+        
         load_dotenv()
+        print(f"[{time.time()-start:.2f}s] dotenv loaded")
+        
 
+        import torch
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        genai.configure(api_key=os.environ["GOOGLE_API_KEY"])
-
+        print(f"[{time.time()-start:.2f}s] torch loaded, device: {self.device}")
         self.siglip_model = AutoModel.from_pretrained(
-            "google/siglip-so400m-patch14-384"
+            "google/siglip-so400m-patch14-384",torch_dtype=torch.float16
         ).to(self.device)
-
         self.siglip_processor = AutoProcessor.from_pretrained(
             "google/siglip-so400m-patch14-384",
             use_fast=True
         )
-
         self.sentence_model = SentenceTransformer(
             "sentence-transformers/all-MiniLM-L6-v2"
-        )
-
+        ).half()
+        
+        import google.generativeai as genai
+        genai.configure(api_key=os.environ["GOOGLE_API_KEY"])
+        print(f"[{time.time()-start:.2f}s] genai configured")
+        
+        from google.generativeai import GenerativeModel
         self.gemini_model = GenerativeModel("gemini-2.5-flash")
+        print(f"[{time.time()-start:.2f}s] gemini model created")
+        
+        from groq import Groq
         self.groq_client = Groq(api_key=os.environ["GROQ_API_KEY"])
-
+        print(f"[{time.time()-start:.2f}s] groq client created")
+        
+        import boto3
         session = boto3.Session(
             aws_access_key_id=os.environ["AWS_ACCESS_KEY_ID"],
             aws_secret_access_key=os.environ["AWS_SECRET_ACCESS_KEY"],
             region_name=os.environ["AWS_REGION"],
         )
+        print(f"[{time.time()-start:.2f}s] boto3 session created")
+        
         self.s3 = session.client("s3")
-
+        print(f"[{time.time()-start:.2f}s] s3 client created")
+        
+        from supabase import create_client
         self.supabase = create_client(
             os.environ["SUPABASE_URL"],
             os.environ["SUPABASE_SERVICE_KEY"]
         )
+        print(f"[{time.time()-start:.2f}s] supabase client created")
+        
+        print(f"✅ TOTAL TIME: {time.time()-start:.2f}s")
 
     @modal.method()
     def chat(self, video_id: str, query: str, history: list[dict]|None = None, top_k: int = 8):
