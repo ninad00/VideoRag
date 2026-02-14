@@ -523,60 +523,91 @@ class VideoProcessor:
 class VideoChat:
     @modal.enter()
     def load_models(self):
-        import time
-        start = time.time()
-        
-        print(f"[{time.time()-start:.2f}s] Starting...")
-        
+        from concurrent.futures import ThreadPoolExecutor, as_completed
         load_dotenv()
-        print(f"[{time.time()-start:.2f}s] dotenv loaded")
-        
-
         import torch
+        
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        print(f"[{time.time()-start:.2f}s] torch loaded, device: {self.device}")
-        self.siglip_model = AutoModel.from_pretrained(
-            "google/siglip-so400m-patch14-384",torch_dtype=torch.float16
-        ).to(self.device)
-        self.siglip_processor = AutoProcessor.from_pretrained(
-            "google/siglip-so400m-patch14-384",
-            use_fast=True
-        )
-        self.sentence_model = SentenceTransformer(
-            "sentence-transformers/all-MiniLM-L6-v2"
-        ).half()
         
-        import google.generativeai as genai
-        genai.configure(api_key=os.environ["GOOGLE_API_KEY"])
-        print(f"[{time.time()-start:.2f}s] genai configured")
+        # Define loading functions
+        def load_siglip_model():
+            return AutoModel.from_pretrained(
+                "google/siglip-so400m-patch14-384",
+                torch_dtype=torch.float16
+            ).to(self.device)
         
-        from google.generativeai import GenerativeModel
-        self.gemini_model = GenerativeModel("gemini-2.5-flash")
-        print(f"[{time.time()-start:.2f}s] gemini model created")
+        def load_siglip_processor():
+            return AutoProcessor.from_pretrained(
+                "google/siglip-so400m-patch14-384",
+                use_fast=True
+            )
         
-        from groq import Groq
-        self.groq_client = Groq(api_key=os.environ["GROQ_API_KEY"])
-        print(f"[{time.time()-start:.2f}s] groq client created")
+        def load_sentence_model():
+            return SentenceTransformer(
+                "sentence-transformers/all-MiniLM-L6-v2"
+            ).half()
         
-        import boto3
-        session = boto3.Session(
-            aws_access_key_id=os.environ["AWS_ACCESS_KEY_ID"],
-            aws_secret_access_key=os.environ["AWS_SECRET_ACCESS_KEY"],
-            region_name=os.environ["AWS_REGION"],
-        )
-        print(f"[{time.time()-start:.2f}s] boto3 session created")
+        def load_gemini():
+            import google.generativeai as genai
+            from google.generativeai import GenerativeModel
+            genai.configure(api_key=os.environ["GOOGLE_API_KEY"])
+            return GenerativeModel("gemini-2.5-flash")
         
-        self.s3 = session.client("s3")
-        print(f"[{time.time()-start:.2f}s] s3 client created")
+        def load_groq():
+            from groq import Groq
+            return Groq(api_key=os.environ["GROQ_API_KEY"])
         
-        from supabase import create_client
-        self.supabase = create_client(
-            os.environ["SUPABASE_URL"],
-            os.environ["SUPABASE_SERVICE_KEY"]
-        )
-        print(f"[{time.time()-start:.2f}s] supabase client created")
+        def load_s3():
+            import boto3
+            session = boto3.Session(
+                aws_access_key_id=os.environ["AWS_ACCESS_KEY_ID"],
+                aws_secret_access_key=os.environ["AWS_SECRET_ACCESS_KEY"],
+                region_name=os.environ["AWS_REGION"],
+            )
+            return session.client("s3")
         
-        print(f"✅ TOTAL TIME: {time.time()-start:.2f}s")
+        def load_supabase():
+            from supabase import create_client
+            return create_client(
+                os.environ["SUPABASE_URL"],
+                os.environ["SUPABASE_SERVICE_KEY"]
+            )
+        
+        # Load all models concurrently
+        load_functions_map = {
+            "siglip_model": load_siglip_model,
+            "siglip_processor": load_siglip_processor,
+            "sentence_model": load_sentence_model,
+            "gemini_model": load_gemini,
+            "groq_client": load_groq,
+            "s3": load_s3,
+            "supabase": load_supabase,
+        }
+        
+        components = {}
+        with ThreadPoolExecutor(max_workers=len(load_functions_map)) as executor:
+            future_to_model_id = {
+                executor.submit(load_fn): model_id 
+                for model_id, load_fn in load_functions_map.items()
+            }
+            
+            for future in as_completed(future_to_model_id.keys()):
+                model_id = future_to_model_id[future]
+                try:
+                    components[model_id] = future.result()
+                except Exception as exc:
+                    print(f'{model_id} generated an exception: {exc}')
+                    raise
+        
+        # Assign to self
+        self.siglip_model = components["siglip_model"]
+        self.siglip_processor = components["siglip_processor"]
+        self.sentence_model = components["sentence_model"]
+        self.gemini_model = components["gemini_model"]
+        self.groq_client = components["groq_client"]
+        self.s3 = components["s3"]
+        self.supabase = components["supabase"]
+        
 
     @modal.method()
     def chat(self, video_id: str, query: str, history: list[dict]|None = None, top_k: int = 8):
