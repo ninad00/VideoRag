@@ -90,7 +90,7 @@ const Signup = () => {
 
         try {
             await axios.post(
-                "http://localhost:3000/auth/register",
+                "https://videositebackend-production.up.railway.app/auth/register",
                 {
                     username,
                     password,

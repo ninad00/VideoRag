@@ -228,7 +228,7 @@ export default function UploadPage() {
 
             // START MULTIPART
             const startRes = await axios.post(
-                "http://localhost:3000/upload/multipart/start",
+                "https://videositebackend-production.up.railway.app/upload/multipart/start",
                 {
                     filename: file.name,
                     uploaderName: user?.username || "Anonymous",
@@ -258,7 +258,7 @@ export default function UploadPage() {
                         const partNumber = index + 1;
 
                         const res = await axios.post(
-                            "http://localhost:3000/upload/multipart/sign",
+                            "https://videositebackend-production.up.railway.app/upload/multipart/sign",
                             {
                                 key,
                                 uploadId,
@@ -320,7 +320,7 @@ export default function UploadPage() {
 
             // COMPLETE UPLOAD
             await axios.post(
-                "http://localhost:3000/upload/multipart/complete",
+                "https://videositebackend-production.up.railway.app/upload/multipart/complete",
                 {
                     key,
                     uploadId,

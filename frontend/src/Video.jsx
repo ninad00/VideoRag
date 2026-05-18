@@ -230,7 +230,7 @@ export default function PlayerPage() {
       try {
 
         const res = await axios.get(
-          `http://localhost:3000/video/${id}`
+          `https://videositebackend-production.up.railway.app/video/${id}`
         );
 
         setVideo(res.data);
@@ -617,7 +617,7 @@ export default function PlayerPage() {
               <div className="bg-black/30 border border-white/10 rounded-2xl px-4 py-3 text-sm text-gray-400 break-all">
                 {video?.uploaderName}
               </div>
-              
+
 
             </div>
 
