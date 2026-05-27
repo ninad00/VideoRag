@@ -33,7 +33,7 @@ export const AuthProvider = ({ children }) => {
 
 
     const login = async (credentials) => {
-        await api.post("/auth/login", credentials); // cookie set here
+        await api.post("/auth/login", { withCredentials: true }, credentials); // cookie set here
         await refreshUser(); // fetch user
     };
 

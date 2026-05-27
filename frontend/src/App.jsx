@@ -18,7 +18,7 @@ export default function App() {
           <Route path="/" element={<ProtectedRoute><HomePage /></ProtectedRoute>} />
           <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
           <Route path="/watch/:id" element={<ProtectedRoute><PlayerPage /></ProtectedRoute>} />
-          <Route path="/upload" element={<ProtectedRoute><UploadPage /></ProtectedRoute>} />
+          {/* <Route path="/upload" element={<ProtectedRoute><UploadPage /></ProtectedRoute>} /> */}
         </Routes>
       </Router>
     </AuthProvider>
