@@ -1,6 +1,8 @@
 # 🎥 Distributed Video Processing & Streaming Pipeline
 
-![Architecture Diagram]<img width="1386" height="818" alt="WhatsApp Image 2026-05-17 at 02 11 48" src="https://github.com/user-attachments/assets/65c38560-f7b2-4458-bec1-fa03fbb1e4c8" />
+##System Architechture
+<img width="1386" height="818" alt="image" src="https://github.com/user-attachments/assets/61955730-f627-42d3-bb17-6f38028d8bc0" />
+
 
 ## Deployed site:https://video-streaming-ruby.vercel.app/
 
